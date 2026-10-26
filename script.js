@@ -36,8 +36,10 @@ function renderCards() {
 }
 
 function deleteCard(index) {
-  cards.splice(index, 1);
-  renderCards();
+  if (confirm('Удалить эту карточку?')) {
+    cards.splice(index, 1);
+    renderCards();
+  }
 }
 
 // При загрузке страницы отрисовать карточки (если есть)
