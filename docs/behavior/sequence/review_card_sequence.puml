@@ -1,0 +1,91 @@
+@startuml review_card_sequence
+' ============================================================
+' Сценарий 2: Сессия повторения карточек (SRS)
+' ============================================================
+
+title Диаграмма последовательности — сессия повторения карточки
+
+skinparam defaultFontName "Segoe UI"
+skinparam shadowing false
+skinparam sequenceMessageAlign left
+skinparam responseMessageBelowArrow true
+skinparam ArrowColor #4A5568
+skinparam SequenceLifeLineBorderColor #A0AEC0
+skinparam SequenceGroupBackgroundColor #F7FAFF
+skinparam SequenceGroupBorderColor #2F5597
+skinparam SequenceGroupFontColor #1A202C
+skinparam actor {
+  BackgroundColor #FFF4E5
+  BorderColor #B26B00
+}
+skinparam participant {
+  BackgroundColor #EAF2FF
+  BorderColor #2F5597
+  FontColor #1A202C
+}
+
+actor "Пользователь" as User
+participant "Интерфейс\n(index.html)" as UI
+participant "Контроллер\n(script.js / API)" as Controller
+participant "Сервис повторений\n(ReviewService)" as ReviewService
+participant "База данных\n(SQLite)" as DB
+
+User -> UI : Нажимает «Начать повторение»
+activate UI
+UI -> Controller : GET /api/reviews/queue?deck_id={deck_id}
+activate Controller
+Controller -> ReviewService : getDueCards(user_id, deck_id)
+activate ReviewService
+ReviewService -> DB : SELECT * FROM Cards\nWHERE deck_id = ?\n  AND (next_review_at <= datetime('now')\n       OR status = 'new')\nORDER BY next_review_at
+activate DB
+DB --> ReviewService : due_cards
+deactivate DB
+ReviewService --> Controller : DueCards(cards)
+Controller --> UI : 200 OK {cards[]}
+deactivate ReviewService
+deactivate Controller
+
+alt Очередь пуста
+  UI --> User : «На сегодня карточек нет»
+
+else Есть карточки к повторению
+  loop Пока в очереди остаются карточки
+    UI -> UI : Показать лицевую сторону карточки
+    UI --> User : Вопрос (лицевая сторона)
+
+    User -> UI : Нажимает «Показать ответ»
+    UI --> User : Обратная сторона\n+ кнопки оценки
+
+    User -> UI : Выбирает оценку\n(again / hard / good / easy)
+    UI -> Controller : POST /api/cards/{id}/reviews\n{rating}
+    activate Controller
+    Controller -> ReviewService : submitReview(card_id, rating)
+    activate ReviewService
+
+    ReviewService -> DB : INSERT INTO Reviews\n(card_id, rating)
+    activate DB
+    DB --> ReviewService : review_id
+    deactivate DB
+
+    ReviewService -> ReviewService : calculateNextReview(status, rating) —\nновый статус и интервал повторения
+    ReviewService -> DB : UPDATE Cards\nSET status = ?, next_review_at = ?,\n    updated_at = datetime('now')\nWHERE card_id = ?
+    activate DB
+    DB --> ReviewService : rows_affected
+    deactivate DB
+
+    ReviewService --> Controller : ReviewAccepted(next_review_at)
+    deactivate ReviewService
+    Controller --> UI : 200 OK {next_review_at}
+    deactivate Controller
+
+    UI -> UI : Обновить прогресс сессии
+    deactivate ReviewService
+    deactivate Controller
+  end
+
+  UI --> User : «Повторение завершено»\n+ итоги сессии
+end
+
+deactivate UI
+
+@enduml

@@ -1,0 +1,65 @@
+@startuml filter_cards_sequence
+' ============================================================
+' Сценарий 3: Фильтрация карточек по колоде и тегу
+' ============================================================
+
+title Диаграмма последовательности — фильтрация карточек
+
+skinparam defaultFontName "Segoe UI"
+skinparam shadowing false
+skinparam sequenceMessageAlign left
+skinparam responseMessageBelowArrow true
+skinparam ArrowColor #4A5568
+skinparam SequenceLifeLineBorderColor #A0AEC0
+skinparam SequenceGroupBackgroundColor #F7FAFF
+skinparam SequenceGroupBorderColor #2F5597
+skinparam SequenceGroupFontColor #1A202C
+skinparam actor {
+  BackgroundColor #FFF4E5
+  BorderColor #B26B00
+}
+skinparam participant {
+  BackgroundColor #EAF2FF
+  BorderColor #2F5597
+  FontColor #1A202C
+}
+
+actor "Пользователь" as User
+participant "Интерфейс\n(index.html)" as UI
+participant "Контроллер\n(script.js / API)" as Controller
+participant "Сервис карточек\n(CardService)" as CardService
+participant "База данных\n(SQLite)" as DB
+
+User -> UI : Выбирает колоду «Английский»\nи тег «еда»
+activate UI
+UI -> UI : Заблокировать элементы управления\nна время запроса
+UI -> Controller : GET /api/cards\n?deck_id=1&tag_id=1
+activate Controller
+Controller -> CardService : getCards(filter)
+activate CardService
+
+CardService -> DB : SELECT c.card_id, c.front_text,\n       c.back_text, c.status\nFROM Cards c\nJOIN Card_Tags ct\n     ON ct.card_id = c.card_id\nWHERE c.deck_id = ?\n  AND ct.tag_id = ?
+activate DB
+DB --> CardService : rows
+deactivate DB
+
+CardService -> CardService : formatCardsForDisplay(rows)
+
+alt Карточки найдены
+  CardService --> Controller : CardsList(cards)
+  Controller --> UI : 200 OK {cards[]}
+  UI -> UI : Очистить текущий список\n(cardList.innerHTML = '')
+  UI -> UI : renderCards(cards)
+  UI --> User : Только карточки выбранной\nколоды и тега
+
+else Ничего не найдено
+  CardService --> Controller : CardsList([])
+  Controller --> UI : 200 OK {cards: []}
+  UI --> User : «Карточки не найдены»\n+ кнопка «Сбросить фильтр»
+end
+
+deactivate CardService
+deactivate Controller
+deactivate UI
+
+@enduml

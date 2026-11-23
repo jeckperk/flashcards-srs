@@ -6,6 +6,7 @@
 
 - [Техническое задание (Wiki)](https://github.com/jeckperk/flashcards-srs/wiki/Техническое-задание)
 - [Задачи (Issues)](https://github.com/jeckperk/flashcards-srs/issues)
+- [Диаграммы поведения (ЛР 5)](docs/behavior/README.md)
 
 ## Вариант
 

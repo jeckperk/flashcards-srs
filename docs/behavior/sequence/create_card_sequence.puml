@@ -1,0 +1,70 @@
+@startuml create_card_sequence
+' ============================================================
+' Сценарий 1: Добавление новой карточки
+' ============================================================
+
+title Диаграмма последовательности — добавление карточки
+
+skinparam defaultFontName "Segoe UI"
+skinparam shadowing false
+skinparam sequenceMessageAlign left
+skinparam responseMessageBelowArrow true
+skinparam ArrowColor #4A5568
+skinparam SequenceLifeLineBorderColor #A0AEC0
+skinparam SequenceGroupBackgroundColor #F7FAFF
+skinparam SequenceGroupBorderColor #2F5597
+skinparam SequenceGroupFontColor #1A202C
+skinparam actor {
+  BackgroundColor #FFF4E5
+  BorderColor #B26B00
+}
+skinparam participant {
+  BackgroundColor #EAF2FF
+  BorderColor #2F5597
+  FontColor #1A202C
+}
+
+actor "Пользователь" as User
+participant "Интерфейс\n(index.html)" as UI
+participant "Контроллер\n(script.js / API)" as Controller
+participant "Сервис карточек\n(CardService)" as CardService
+participant "База данных\n(SQLite)" as DB
+
+User -> UI : Заполняет лицевую и обратную стороны,\nвыбирает колоду и теги
+activate UI
+UI -> Controller : POST /api/cards\n{front_text, back_text, deck_id, tags[]}
+activate Controller
+Controller -> CardService : createCard(cardData)
+activate CardService
+CardService -> CardService : validateCard(cardData)\nпроверка пустых полей и длины текста
+
+alt Данные корректны
+  CardService -> DB : INSERT INTO Cards\n(front_text, back_text, deck_id, status='new')
+  activate DB
+  DB --> CardService : card_id
+  deactivate DB
+
+  loop Для каждого выбранного тега
+    CardService -> DB : INSERT INTO Card_Tags\n(card_id, tag_id)
+    activate DB
+    DB --> CardService : ok
+    deactivate DB
+  end
+
+  CardService --> Controller : CardCreated(card_id)
+  Controller --> UI : 201 Created\n{card_id, message}
+  UI -> UI : renderCards() — добавить карточку в список
+  UI -> UI : Очистить поля ввода и вернуть фокус
+  UI --> User : Новая карточка в списке\n+ сообщение «Карточка добавлена»
+
+else Данные некорректны
+  CardService --> Controller : ValidationError\n«Заполните обе стороны карточки!»
+  Controller --> UI : 400 Bad Request\n{error_message}
+  UI --> User : Показать ошибку валидации\n(alert на форме)
+end
+
+deactivate CardService
+deactivate Controller
+deactivate UI
+
+@enduml

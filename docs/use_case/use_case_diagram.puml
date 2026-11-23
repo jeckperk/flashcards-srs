@@ -1,0 +1,80 @@
+@startuml use_case_diagram
+' ============================================================
+' Лабораторная работа 5. Диаграмма вариантов использования
+' Приложение: «Флеш-карточки для запоминания» (Anki-подобное)
+' ============================================================
+
+left to right direction
+title Диаграмма вариантов использования — «Флеш-карточки для запоминания»
+
+skinparam defaultFontName "Segoe UI"
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam nodesep 28
+skinparam ranksep 45
+skinparam ArrowColor #4A5568
+skinparam ArrowFontColor #4A5568
+skinparam usecase {
+  BackgroundColor #EAF2FF
+  BorderColor #2F5597
+  FontColor #1A202C
+  FontSize 13
+}
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #2F5597
+  FontColor #1A202C
+  FontSize 14
+}
+skinparam actor {
+  BackgroundColor #FFF4E5
+  BorderColor #B26B00
+  FontColor #1A202C
+  FontSize 13
+}
+
+actor "Пользователь" as User
+
+rectangle "Флеш-карточки для запоминания" {
+
+  ' --- Основные варианты использования ---
+  usecase "Добавить карточку" as UC_ADD
+  usecase "Просмотреть карточки" as UC_VIEW
+  usecase "Редактировать карточку" as UC_EDIT
+  usecase "Удалить карточку" as UC_DELETE
+  usecase "Пройти сессию повторения" as UC_REVIEW
+  usecase "Оценить ответ\n(again / hard / good / easy)" as UC_RATE
+  usecase "Фильтровать карточки\nпо колоде и тегу" as UC_FILTER
+  usecase "Найти карточку" as UC_SEARCH
+  usecase "Управлять колодами" as UC_DECK
+  usecase "Посмотреть статистику\nобучения" as UC_STATS
+
+  ' --- Включаемые и расширяющие варианты ---
+  usecase "Проверить корректность\nданных" as UC_VALIDATE
+  usecase "Подтвердить удаление" as UC_CONFIRM
+  usecase "Пересчитать дату\nследующего повторения" as UC_SCHEDULE
+}
+
+' --- Ассоциации актора с вариантами использования ---
+User -- UC_ADD
+User -- UC_VIEW
+User -- UC_EDIT
+User -- UC_DELETE
+User -- UC_REVIEW
+User -- UC_FILTER
+User -- UC_SEARCH
+User -- UC_DECK
+User -- UC_STATS
+
+' --- Отношения include: обязательное поведение ---
+UC_ADD ..> UC_VALIDATE : <<include>>
+UC_EDIT ..> UC_VALIDATE : <<include>>
+UC_DELETE ..> UC_CONFIRM : <<include>>
+UC_REVIEW ..> UC_RATE : <<include>>
+UC_REVIEW ..> UC_SCHEDULE : <<include>>
+
+' --- Отношения extend: необязательное расширение базового сценария ---
+UC_VIEW <.. UC_FILTER : <<extend>>
+UC_VIEW <.. UC_SEARCH : <<extend>>
+
+@enduml

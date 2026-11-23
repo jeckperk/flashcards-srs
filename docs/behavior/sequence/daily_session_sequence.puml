@@ -1,0 +1,99 @@
+@startuml daily_session_sequence
+' ============================================================
+' Сценарий 4: Ежедневная работа с приложением (комплексный сценарий)
+' ============================================================
+
+title Диаграмма последовательности — ежедневная сессия обучения
+
+skinparam defaultFontName "Segoe UI"
+skinparam shadowing false
+skinparam sequenceMessageAlign left
+skinparam responseMessageBelowArrow true
+skinparam ArrowColor #4A5568
+skinparam SequenceLifeLineBorderColor #A0AEC0
+skinparam SequenceGroupBackgroundColor #F7FAFF
+skinparam SequenceGroupBorderColor #2F5597
+skinparam SequenceGroupFontColor #1A202C
+skinparam actor {
+  BackgroundColor #FFF4E5
+  BorderColor #B26B00
+}
+skinparam participant {
+  BackgroundColor #EAF2FF
+  BorderColor #2F5597
+  FontColor #1A202C
+}
+
+actor "Пользователь" as User
+participant "Интерфейс\n(index.html)" as UI
+participant "Контроллер\n(script.js / API)" as Controller
+participant "Сервис повторений\n(ReviewService)" as ReviewService
+participant "Сервис статистики\n(StatisticsService)" as StatsService
+participant "База данных\n(SQLite)" as DB
+
+== Утренний обзор ==
+
+User -> UI : Открывает приложение
+activate UI
+UI -> Controller : GET /api/reviews/today
+activate Controller
+Controller -> ReviewService : getTodayQueue(user_id)
+activate ReviewService
+ReviewService -> DB : SELECT COUNT(*) AS total,\n  SUM(next_review_at < datetime('now')) AS overdue\nFROM Cards\nWHERE status != 'known'
+activate DB
+DB --> ReviewService : queue_stats
+deactivate DB
+ReviewService --> Controller : TodayQueue(total, overdue, new_count)
+Controller --> UI : 200 OK {total, overdue, new_count}
+UI -> UI : Отобразить блок «На сегодня»\nи подсветить просроченные
+UI --> User : «12 карточек, из них 3 просрочены»
+deactivate ReviewService
+deactivate Controller
+
+== Повторение карточек ==
+
+loop Пока очередь не пуста
+  User -> UI : Открывает карточку и нажимает\n«Показать ответ»
+  UI --> User : Обратная сторона карточки
+  User -> UI : Выбирает оценку ответа\n(again / hard / good / easy)
+  UI -> Controller : POST /api/cards/{id}/reviews\n{rating}
+  activate Controller
+  Controller -> ReviewService : submitReview(card_id, rating)
+  activate ReviewService
+  ReviewService -> DB : INSERT INTO Reviews (card_id, rating)\nUPDATE Cards SET status = ?, next_review_at = ?
+  activate DB
+  DB --> ReviewService : ok
+  deactivate DB
+  ReviewService -> StatsService : trackReview(card_id, rating, timestamp)
+  activate StatsService
+  StatsService --> ReviewService : tracked
+  deactivate StatsService
+  ReviewService --> Controller : SuccessResponse(next_review_at)
+  Controller --> UI : 200 OK {next_review_at}
+  deactivate ReviewService
+  deactivate Controller
+  UI -> UI : Обновить прогресс сессии (5/12)
+  UI --> User : «Осталось 7 карточек»
+end
+
+== Итоги дня ==
+
+User -> UI : Открывает раздел «Статистика»
+UI -> Controller : GET /api/statistics/daily
+activate Controller
+Controller -> StatsService : buildDailyReport(user_id, date)
+activate StatsService
+StatsService -> DB : SELECT rating, COUNT(*) FROM Reviews\nWHERE reviewed_at >= date('now')\nGROUP BY rating
+activate DB
+DB --> StatsService : aggregated_rows
+deactivate DB
+StatsService -> StatsService : calculateAccuracy(ratings)\nи длина серии дней (streak)
+StatsService --> Controller : DailyReport(total, known, accuracy, streak)
+Controller --> UI : 200 OK {report}
+deactivate StatsService
+deactivate Controller
+UI -> UI : Построить график по оценкам
+UI --> User : Отчёт за день:\n10 верных, 2 на повтор, серия 4 дня
+deactivate UI
+
+@enduml
